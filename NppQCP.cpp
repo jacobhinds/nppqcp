@@ -1034,7 +1034,7 @@ void DrawColorMarkers(const HWND h_scintilla) {
 		rc.left = start_x;
 		rc.right = end_x;
 		rc.top = start_y + line_height;
-		rc.bottom = rc.top + 2;
+		rc.bottom = rc.top + LINETHICKNESS;
 		brush = ::CreateSolidBrush(colorref);
 		::FillRect(hdc_editor, &rc, brush);
 		::DeleteObject(brush);
