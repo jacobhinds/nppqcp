@@ -120,6 +120,12 @@ void LoadConfig(){
 	if(enabled == 5)
 		enabled = 1;
 	_enable_qcp_highlight = ( enabled == 1);
+	
+	const wchar_t _ini_key_linethickness[] = L"LineThickness";
+	enabled = ::GetPrivateProfileInt(_ini_section, _ini_key_linethickness, 5, _ini_file_path);
+	if(enabled == 5)
+		enabled = 1;
+	_enable_qcp_highlight = ( enabled == 1);
 
 }
 
