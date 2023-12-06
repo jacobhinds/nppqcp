@@ -54,6 +54,7 @@ HWND _message_window;
 bool _enable_qcp = false;
 bool _enable_qcp_highlight = false;
 bool _is_color_picker_shown = false;
+int LINETHICKNESS = 4;
 
 int _qcp_cmd_index = 0;
 int _highlight_cmd_index = 0;
@@ -122,10 +123,7 @@ void LoadConfig(){
 	_enable_qcp_highlight = ( enabled == 1);
 	
 	const wchar_t _ini_key_linethickness[] = L"LineThickness";
-	enabled = ::GetPrivateProfileInt(_ini_section, _ini_key_linethickness, 5, _ini_file_path);
-	if(enabled == 5)
-		enabled = 1;
-	_enable_qcp_highlight = ( enabled == 1);
+	LINETHICKNESS = ::GetPrivateProfileInt(_ini_section, _ini_key_linethickness, 4, _ini_file_path);
 
 }
 
@@ -140,6 +138,12 @@ void SaveConfig(){
 	::WritePrivateProfileString(
 		_ini_section, _ini_key_highlight,
 		_enable_qcp_highlight ? L"1" : L"0",
+		_ini_file_path
+	);
+
+	::WritePrivateProfileString(
+		_ini_section, _ini_key_linethickness,
+		std::to_string(LINETHICKNESS),
 		_ini_file_path
 	);
 
@@ -857,7 +861,8 @@ void FindHexColor(const HWND h_scintilla, const int start_position, const int en
 
 		for (int i = 1; i < 10; i++) {
 			char ch = buff[i];
-			if (strchr(" ;.)\0", ch) != NULL) {
+			// Comma included
+			if (strchr(" ;.)\0,", ch) != NULL) {
 				// delimiter found
 				if (i == 4 || i == 7) {
 					// is the right length
@@ -1039,8 +1044,8 @@ void DrawColorMarkers(const HWND h_scintilla) {
 		// new color
 		rc.left = start_x;
 		rc.right = end_x;
-		rc.top = start_y + line_height;
-		rc.bottom = rc.top + LINETHICKNESS;
+		rc.top = start_y + line_height - (LINETHICKNESS / 2);
+		rc.bottom = rc.top + (LINETHICKNESS / 2);
 		brush = ::CreateSolidBrush(colorref);
 		::FillRect(hdc_editor, &rc, brush);
 		::DeleteObject(brush);
