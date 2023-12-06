@@ -1,5 +1,14 @@
 # Thicker Lines Fork
-A fork of the original for my own use. Mainly just to make the highlight lines thicker and to account for hex codes that end with a comma, for example in CSV files. Line thickness is accessible via an appdata .ini key called LINETHICKNESS. May add more functionality in future.
+**(updated to version 8.4.6 for Notepad++)**
+A fork of the original for my own use, mainly just to make the highlight lines thicker 
+and to account for hex codes that end with a comma, for example in CSV files. 
+Line thickness is accessible via an appdata .ini key called linethickness. 
+May add more functionality in future.
+
+v2.1
+* Updated API calls to 8.4.6
+* Added .ini line for adjusting line size
+* Added support for codes ending with comma
 
 # Original Intro Content
 **A color picker plugin for Notepad++**

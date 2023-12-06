@@ -116,13 +116,13 @@ const size_t namedColorCount = sizeof (namedColors) / sizeof (NamedColor);
 
 template <typename T>
 uint8_t clamp_css_byte(T i) {  // Clamp to integer 0 .. 255.
-    i = std::round(i);  // Seems to be what Chrome does (vs truncation).
+    i = (uint8_t)std::round(i);  // Seems to be what Chrome does (vs truncation).
     return i < 0 ? 0 : i > 255 ? 255 : i;
 }
 
 template <typename T>
 float clamp_css_float(T f) {  // Clamp to float 0.0 .. 1.0.
-    return f < 0 ? 0 : f > 1 ? 1 : f;
+    return f < 0.f ? 0.f : f > 1.f ? 1.f : f;
 }
 
 float parseFloat(const std::string& str) {
@@ -135,9 +135,9 @@ int64_t parseInt(const std::string& str, uint8_t base = 10) {
 
 uint8_t parse_css_int(const std::string& str) {  // int or percentage.
     if (str.length() && str.back() == '%') {
-        return clamp_css_byte(parseFloat(str) / 100.0f * 255.0f);
+        return clamp_css_byte(uint8_t(parseFloat(str) / 100.0f * 255.0f));
     } else {
-        return clamp_css_byte(parseInt(str));
+        return clamp_css_byte((uint8_t)parseInt(str));
     }
 }
 
@@ -163,7 +163,7 @@ float css_hue_to_rgb(float m1, float m2, float h) {
         return m2;
     }
     if (h * 3.0f < 2.0f) {
-        return m1 + (m2 - m1) * (2.0 / 3.0 - h) * 6.0f;
+        return m1 + (m2 - m1) * (2.0f / 3.0f - h) * 6.0f;
     }
     return m1;
 }
@@ -278,9 +278,9 @@ Color CSSColorParser::parse(const std::string& css_str) {
             float m1 = l * 2.0f - m2;
 
             return {
-                clamp_css_byte(css_hue_to_rgb(m1, m2, h + 1.0f / 3.0f) * 255.0f),
-                clamp_css_byte(css_hue_to_rgb(m1, m2, h) * 255.0f),
-                clamp_css_byte(css_hue_to_rgb(m1, m2, h - 1.0f / 3.0f) * 255.0f),
+                clamp_css_byte((uint8_t)(css_hue_to_rgb(m1, m2, h + 1.0f / 3.0f) * 255.0f)),
+                clamp_css_byte((uint8_t)(css_hue_to_rgb(m1, m2, h) * 255.0f)),
+                clamp_css_byte((uint8_t)(css_hue_to_rgb(m1, m2, h - 1.0f / 3.0f) * 255.0f)),
                 alpha
             };
         }

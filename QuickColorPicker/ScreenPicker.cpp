@@ -25,6 +25,9 @@ ScreenPicker::ScreenPicker(COLORREF color){
 	_old_color = color;
 	_new_color = 0;
 
+	_cursor = 0;
+	_info_window = 0;
+	_zoom_area = 0;
 }
 
 ScreenPicker::~ScreenPicker(){
@@ -305,7 +308,7 @@ void QuickColorPicker::ScreenPicker::RestoreMouseSpeed()
 {
 	SystemParametersInfo(SPI_SETMOUSESPEED,
 		0,
-		(LPVOID)_mouse_speed,
+		(LPVOID)(int64_t)_mouse_speed,
 		SPIF_UPDATEINIFILE ||
 		SPIF_SENDCHANGE ||
 		SPIF_SENDWININICHANGE);
