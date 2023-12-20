@@ -181,6 +181,11 @@ std::vector<std::string> split(const std::string& s, char delim) {
 }
 
 Color CSSColorParser::parse(const std::string& css_str) {
+    std::string RefString = css_str;
+    return parseRef(RefString);
+}
+
+Color CSSColorParser::parseRef(std::string& css_str) {
     std::string str = css_str;
 
     // Remove all whitespace, not compliant, but should just be more accepting.

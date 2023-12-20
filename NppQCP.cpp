@@ -40,10 +40,31 @@ const wchar_t _ini_section[] = L"nppqcp";
 const wchar_t _ini_key_enable[] = L"enabled";
 const wchar_t _ini_key_highlight[] = L"highlight";
 const wchar_t _ini_key_linethickness[] = L"linethickness";
+const wchar_t _ini_key_hatchedhighlight[] = L"hatchedhighlight";
+const wchar_t _ini_key_hatchedhighlight_type[] = L"hatchedhighlighttype";
+
 const wchar_t _ini_file[] = L"nppqcp.ini";
 TCHAR _ini_file_path[MAX_PATH];
 
-struct ColorMarker { CSSColorParser::Color color; int start; int end; };
+struct ColorMarker {
+	CSSColorParser::Color color;
+	int start; 
+	int end; 
+	std::wstring HexString;
+
+	ColorMarker()
+	{
+		color = CSSColorParser::Color();
+		start = end = 0;
+		HexString = L"000000";
+	}
+
+	LPCWSTR getLPCWSTR() const
+	{
+		return HexString.data();
+	}
+};
+
 ColorMarker _color_markers[MAX_COLOR_CODE_HIGHTLIGHT];
 int _color_marker_index = -1;
 
@@ -55,10 +76,13 @@ HWND _message_window;
 bool _enable_qcp = false;
 bool _enable_qcp_highlight = false;
 bool _is_color_picker_shown = false;
+bool _enable_hatchedhighlight = false;
 int _linethickness = 4;
+int _hatchedhighlight_type = 4;
 
 int _qcp_cmd_index = 0;
 int _highlight_cmd_index = 0;
+int _hatch_cmd_index = 0;
 
 int _current_type = 0;
 int _replace_start = -1;
@@ -121,10 +145,16 @@ void LoadConfig(){
 	enabled = ::GetPrivateProfileInt(_ini_section, _ini_key_highlight, 5, _ini_file_path);
 	if(enabled == 5)
 		enabled = 1;
-	_enable_qcp_highlight = ( enabled == 1);
+	_enable_qcp_highlight = (enabled == 1);
+
+	enabled = ::GetPrivateProfileInt(_ini_section, _ini_key_hatchedhighlight, 5, _ini_file_path);
+	if (enabled == 5)
+		enabled = 1;
+	_enable_hatchedhighlight = (enabled == 1);
 	
-	const wchar_t _ini_key_linethickness[] = L"LineThickness";
 	_linethickness = ::GetPrivateProfileInt(_ini_section, _ini_key_linethickness, 4, _ini_file_path);
+
+	_hatchedhighlight_type = ::GetPrivateProfileInt(_ini_section, _ini_key_hatchedhighlight_type, 0, _ini_file_path);
 
 }
 
@@ -146,6 +176,20 @@ void SaveConfig(){
 	::WritePrivateProfileString(
 		_ini_section, _ini_key_linethickness,
 		std::to_wstring(_linethickness).c_str(),
+		_ini_file_path
+	);
+
+
+	::WritePrivateProfileString(
+		_ini_section, _ini_key_hatchedhighlight_type,
+		std::to_wstring(_hatchedhighlight_type).c_str(),
+		_ini_file_path
+	);
+
+
+	::WritePrivateProfileString(
+		_ini_section, _ini_key_hatchedhighlight,
+		_enable_hatchedhighlight ? L"1" : L"0",
 		_ini_file_path
 	);
 
@@ -172,7 +216,9 @@ void InitCommandMenu() {
 	_qcp_cmd_index = index++;
 	setCommand(_qcp_cmd_index, L"Enable Quick Color Picker", ToggleQCP, NULL, _enable_qcp);
 	_highlight_cmd_index = index++;
-	setCommand(_highlight_cmd_index, L"Enable Color Highlight", ToggleColorHighlight, NULL, _enable_qcp_highlight);
+	setCommand(_highlight_cmd_index, L"Underline Hex Codes", ToggleColorHighlight, NULL, _enable_qcp_highlight);
+	_hatch_cmd_index = index++;
+	setCommand(_hatch_cmd_index, L"Hatched Highlight on Hex Codes", ToggleHatchHighlight, NULL, _enable_hatchedhighlight);
 	setCommand(index++, L"---", NULL, NULL, false);
 
 	// get version
@@ -285,6 +331,20 @@ void ToggleQCP() {
 
 
 // toggle color highlight
+void ToggleHatchHighlight() {
+
+	_enable_hatchedhighlight = !_enable_hatchedhighlight;
+
+	::CheckMenuItem(::GetMenu(nppData._nppHandle), funcItem[_hatch_cmd_index]._cmdID, MF_BYCOMMAND | (_enable_hatchedhighlight ? MF_CHECKED : MF_UNCHECKED));
+
+	if (_enable_hatchedhighlight) {
+		HighlightColorCode();
+	}
+	else {
+		ClearColorMarkers();
+	}
+}
+
 void ToggleColorHighlight() {
 
 	_enable_qcp_highlight = !_enable_qcp_highlight;
@@ -783,9 +843,13 @@ void SaveRecentColor(){
 // highlight hex color
 ////////////////////////////////////////////////////////////////////////////////
 void HighlightColorCode() {
-
-	if(!_enable_qcp || !_enable_qcp_highlight)
+	
+	const bool bAnyAvailableHighlights = _enable_hatchedhighlight || _enable_qcp_highlight;
+	
+	if (!_enable_qcp || !bAnyAvailableHighlights)
+	{
 		return;
+	}
 
 	int lang = -100;
     ::SendMessage(nppData._nppHandle, NPPM_GETCURRENTLANGTYPE, 0, (LPARAM)&lang);
@@ -836,7 +900,6 @@ void FindHexColor(const HWND h_scintilla, const int start_position, const int en
 		tf.chrg.cpMax = end_position+1;
 		tf.lpstrText = "#";
 
-		tf.chrgText = tf.chrg;
 		const Sci_TextToFindFull* tf_Ptr = &tf;
 		int target_pos = (int)::SendMessage(h_scintilla, SCI_FINDTEXTFULL, 0, (LPARAM)&tf);
 
@@ -866,7 +929,7 @@ void FindHexColor(const HWND h_scintilla, const int start_position, const int en
 		for (int i = 1; i < 10; i++) {
 			char ch = buff[i];
 			// Comma included
-			if (strchr(" ;,.)\0", ch) != NULL) {
+			if (strchr(" ;,.)\0\n", ch) != NULL) {
 				// delimiter found
 				if (i == 4 || i == 7) {
 					// is the right length
@@ -895,10 +958,9 @@ void FindHexColor(const HWND h_scintilla, const int start_position, const int en
 		// parse color string
 		CSSColorParser::Color css_color = CSSColorParser::parse(buff);
 
-		marker_not_full = SaveColorMarker(css_color, target_start, target_end);
+		marker_not_full = SaveColorMarker(css_color, target_start, target_end, buff);
 
 		search_start = target_end; // move on
-
     }
 
 }
@@ -983,7 +1045,7 @@ void FindBracketColor(const HWND h_scintilla, const int start_position, const in
 		// parse color string
 		CSSColorParser::Color css_color = CSSColorParser::parse(buff);
 
-		marker_not_full = SaveColorMarker(css_color, target_start, target_end);
+		marker_not_full = SaveColorMarker(css_color, target_start, target_end, buff);
 
 		search_start = target_end; // move on
 
@@ -991,20 +1053,28 @@ void FindBracketColor(const HWND h_scintilla, const int start_position, const in
 
 }
 
-
-bool SaveColorMarker(CSSColorParser::Color color, int marker_start, int marker_end) {
+bool SaveColorMarker(CSSColorParser::Color color, int marker_start, int marker_end, const std::string& String) {
 
 	_color_marker_index++;
 
 	if (_color_marker_index < MAX_COLOR_CODE_HIGHTLIGHT) {
 
-		_color_markers[_color_marker_index] = { color, marker_start, marker_end };
+
+		ColorMarker& ThisColourMarker = _color_markers[_color_marker_index];
+		std::wstring& HexString = ThisColourMarker.HexString;
+		HexString.resize(String.length());
+		for (int i = 0; i < String.length(); i++)
+		{
+			HexString[i] = String[i];
+		}
+		
+		ThisColourMarker.color = color;
+		ThisColourMarker.start = marker_start;
+		ThisColourMarker.end = marker_end;
 
 		return true;
-
 	}
 	else {
-
 		return false;
 	}
 
@@ -1016,49 +1086,119 @@ void EmptyColorMarker() {
 
 }
 
+//https://stackoverflow.com/questions/3942878/how-to-decide-font-color-in-white-or-black-depending-on-background-color
+COLORREF _ChooseBackgroundTextColour(const COLORREF Background)
+{
+	int r, g, b;
+	r = GetRValue(Background);
+	g = GetGValue(Background);
+	b = GetBValue(Background);
+	const float Intensity = (r * 0.299f) + (g * 0.587f) + (b * 0.114f);
+
+	if (Intensity > 150)
+	{
+		return RGB(0, 0, 0);
+	}
+	else
+	{
+		return RGB(255, 255, 255);
+	}
+}
+
 void DrawColorMarkers(const HWND h_scintilla) {
 	
 	if (_color_marker_index < 0)
+	{
 		return;
+	}
 
 	HDC hdc_editor = ::GetDC(h_scintilla);
-	RECT rc;
+	RECT HatchedRect = RECT();
+	RECT UnderlineRect = RECT();
+
+	RECT TextRect = RECT();
+	LPRECT TextRectPtr = LPRECT();
+	TextRectPtr = &TextRect;
+	
 	HBRUSH brush;
 
 	int list_length = _color_marker_index + 1;
+	
+	::SetBkMode(hdc_editor, TRANSPARENT);
 
 	for (int i = 0; i < list_length; i++) {
 
-		ColorMarker cm = _color_markers[i];
+		const ColorMarker& ThisColourMarker = _color_markers[i];
 
 		//const int length = cm.end - cm.start;
 
-		const int start_x = (int)::SendMessage(h_scintilla, SCI_POINTXFROMPOSITION, 0, cm.start);
-		const int start_y = (int)::SendMessage(h_scintilla, SCI_POINTYFROMPOSITION, 0, cm.start);
-		const int end_x = (int)::SendMessage(h_scintilla, SCI_POINTXFROMPOSITION, 0, cm.end);
-		const int end_y = (int)::SendMessage(h_scintilla, SCI_POINTYFROMPOSITION, 0, cm.end);
+		const int start_x = (int)::SendMessage(h_scintilla, SCI_POINTXFROMPOSITION, 0, ThisColourMarker.start);
+		const int start_y = (int)::SendMessage(h_scintilla, SCI_POINTYFROMPOSITION, 0, ThisColourMarker.start);
+		const int end_x = (int)::SendMessage(h_scintilla, SCI_POINTXFROMPOSITION, 0, ThisColourMarker.end);
+		const int end_y = (int)::SendMessage(h_scintilla, SCI_POINTYFROMPOSITION, 0, ThisColourMarker.end);
 
 		const int line_height = (int)::SendMessage(h_scintilla, SCI_TEXTHEIGHT, 0, 0);
 
 		// convert to COLORREF
-		COLORREF colorref = RGB(cm.color.r, cm.color.g, cm.color.b);
+		COLORREF colorref = RGB(ThisColourMarker.color.r, ThisColourMarker.color.g, ThisColourMarker.color.b);
 
 		// paint swatch /////////
-
+		
 		// new color
-		rc.left = start_x;
-		rc.right = end_x;
-		rc.top = start_y + line_height - (_linethickness / 2);
-		rc.bottom = rc.top + (_linethickness / 2);
-		brush = ::CreateSolidBrush(colorref);
-		::FillRect(hdc_editor, &rc, brush);
-		::DeleteObject(brush);
+		if (_enable_hatchedhighlight)
+		{
+			HatchedRect.left = start_x;
+			HatchedRect.right = end_x;
+			HatchedRect.top = start_y + line_height;
+			HatchedRect.bottom = start_y;
+			if (_hatchedhighlight_type < 0)
+			{
+				brush = ::CreateSolidBrush(colorref);
+			}
+			else
+			{
+				brush = ::CreateHatchBrush(_hatchedhighlight_type, colorref);
+			}
+
+			::FillRect(hdc_editor, &HatchedRect, brush);
+			::DeleteObject(brush);
+
+			TextRectPtr->left = start_x;
+			TextRectPtr->right = end_x;
+			TextRectPtr->top = start_y;
+			TextRectPtr->bottom = start_y;
+			
+
+			const COLORREF TextColor = _ChooseBackgroundTextColour(colorref);
+			
+			::SetTextAlign(hdc_editor, TA_LEFT);
+			::SetTextColor(hdc_editor, TextColor);
+			::DrawText(
+				hdc_editor,
+				ThisColourMarker.getLPCWSTR(), 
+				6,
+				TextRectPtr, 
+				DT_SINGLELINE | DT_NOCLIP
+			);
+		}
+		if (_enable_qcp_highlight)
+		{
+			UnderlineRect.left = start_x;
+			UnderlineRect.right = end_x;
+			UnderlineRect.top = start_y + line_height - (_linethickness / 2);
+			UnderlineRect.bottom = start_y + line_height + (_linethickness / 2);
+			brush = ::CreateSolidBrush(colorref);
+			::FillRect(hdc_editor, &UnderlineRect, brush);
+			::DeleteObject(brush);
+		}
 	
 	}
+
 
 	::ReleaseDC(h_scintilla, hdc_editor);
 
 	EmptyColorMarker();
+	::SetBkMode(hdc_editor, OPAQUE);
 
 }
 
@@ -1067,7 +1207,7 @@ void ClearColorMarkers() {
 
 	EmptyColorMarker();
 
-	HWND h_scintilla = GetScintilla();
-	::RedrawWindow(h_scintilla, NULL, NULL, RDW_INVALIDATE);
+	//HWND h_scintilla = GetScintilla();
+	//::RedrawWindow(h_scintilla, NULL, NULL, RDW_INVALIDATE);
 
 }

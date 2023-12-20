@@ -9,7 +9,7 @@
 const TCHAR NPP_PLUGIN_NAME[] = TEXT("Quick Color Picker +");
 const TCHAR NPP_PLUGIN_VER[] = TEXT("1.0");
 
-const int COMMNAD_COUNT = 7;
+const int COMMNAD_COUNT = 9;
 
 void AttachDll(HANDLE module);
 
@@ -32,6 +32,7 @@ void PickFromScreen();
 
 void ToggleQCP();
 void ToggleColorHighlight();
+void ToggleHatchHighlight();
 void VisitWebsite();
 
 HWND GetScintilla();
@@ -62,7 +63,7 @@ void SaveRecentColor();
 void HighlightColorCode();
 
 void EmptyColorMarker();
-bool SaveColorMarker(CSSColorParser::Color color, int marker_start, int marker_end);
+bool SaveColorMarker(CSSColorParser::Color color, int marker_start, int marker_end, const std::string& String);
 
 void FindHexColor(const HWND h_scintilla, const int start_position, const int end_position);
 void FindBracketColor(const HWND h_scintilla, const int start_position, const int end_position, char* suff);

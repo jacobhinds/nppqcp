@@ -38,6 +38,7 @@ struct Color {
 };
 
 Color parse(const std::string& css_str);
+Color parseRef(std::string& css_str);
 
 }
 
